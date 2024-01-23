@@ -7,7 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-.env*
+.env
 
 # Client (React) - Dependency directories and build artifacts
 /client/node_modules
