@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-function fetchResponse(messages) {
-  // Replace the URL and API key with your actual values
+function getChatResponse(messages) {
   const apiUrl = import.meta.env.VITE_REACT_API_URL;
   const apiKey = import.meta.env.VITE_REACT_API_KEY;
 
@@ -14,6 +13,7 @@ function fetchResponse(messages) {
     body: JSON.stringify({
       model: 'gpt-3.5-turbo',
       messages: messages,
+      stream: true,
     }),
   });
 }
@@ -27,30 +27,6 @@ function App() {
     },
   ]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetchResponse(messages);
-        const apiResponse = await response.json();
-
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          {
-            role: 'assistant',
-            content: apiResponse.choices[0].message.content,
-          },
-        ]);
-      } catch (error) {
-        console.error('Error fetching response:', error);
-        // Handle error
-      }
-    };
-
-    if (messages.length > 1 && messages[messages.length - 1].role === 'user') {
-      fetchData();
-    }
-  }, [messages]);
-
   const handleFormSubmit = async (e) => {
     e.preventDefault();
 
@@ -59,15 +35,61 @@ function App() {
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries());
 
+    setText('');
+
     setMessages((prevMessages) => [
       ...prevMessages,
       {
         role: 'user',
         content: data.query,
       },
+      {
+        role: 'assistant',
+        content: '',
+      },
     ]);
 
-    setText('');
+    const response = await getChatResponse([
+      ...messages,
+      {
+        role: 'user',
+        content: data.query,
+      },
+    ]);
+
+    if (!response.body) return;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let isFinished = false;
+
+    while (!isFinished) {
+      const { done, value } = await reader.read();
+
+      isFinished = done;
+      const decodeValue = decoder.decode(value);
+      if (!decodeValue) break;
+
+      const messages = decodeValue.split('\n\n');
+      const chucks = messages
+        .filter((msg) => msg && msg !== 'data: [DONE]')
+        .map((message) => JSON.parse(message.replace(/^data:/g, '').trim()));
+
+      for (const chunk of chucks) {
+        const content = chunk.choices[0].delta.content;
+
+        if (content) {
+          setMessages((prevMessages) => [
+            ...prevMessages.slice(0, prevMessages.length - 1),
+            {
+              role: 'assistant',
+              content: `${
+                prevMessages[prevMessages.length - 1].content
+              }${content}`,
+            },
+          ]);
+        }
+      }
+    }
   };
 
   const resizeInput = (el) => {
