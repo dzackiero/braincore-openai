@@ -1,4 +1,22 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+function fetchResponse(messages) {
+  // Replace the URL and API key with your actual values
+  const apiUrl = import.meta.env.VITE_REACT_API_URL;
+  const apiKey = import.meta.env.VITE_REACT_API_KEY;
+
+  return fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-3.5-turbo',
+      messages: messages,
+    }),
+  });
+}
 
 function App() {
   const [text, setText] = useState('');
@@ -9,24 +27,53 @@ function App() {
     },
   ]);
 
-  function resizeInput(el) {
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetchResponse(messages);
+        const apiResponse = await response.json();
+
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          {
+            role: 'assistant',
+            content: apiResponse.choices[0].message.content,
+          },
+        ]);
+      } catch (error) {
+        console.error('Error fetching response:', error);
+        // Handle error
+      }
+    };
+
+    if (messages.length > 1 && messages[messages.length - 1].role === 'user') {
+      fetchData();
+    }
+  }, [messages]);
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!text.trim()) return;
+
+    const formData = new FormData(e.currentTarget);
+    const data = Object.fromEntries(formData.entries());
+
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      {
+        role: 'user',
+        content: data.query,
+      },
+    ]);
+
+    setText('');
+  };
+
+  const resizeInput = (el) => {
     el.style.height = '0px';
     el.style.height = el.scrollHeight + 'px';
-  }
-
-  function fetchResponse(messages) {
-    return fetch(import.meta.env.VITE_REACT_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${import.meta.env.VITE_REACT_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: messages,
-      }),
-    });
-  }
+  };
 
   return (
     <>
@@ -35,7 +82,7 @@ function App() {
           <div className="flex flex-col flex-end justify-end py-8 flex-grow">
             <ul>
               {messages.map((data, index) =>
-                data.role == 'system' ? (
+                data.role === 'system' ? (
                   ''
                 ) : (
                   <li key={index}>
@@ -45,44 +92,7 @@ function App() {
               )}
             </ul>
           </div>
-          <form
-            className="flex gap-4"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              const data = Object.fromEntries(formData.entries());
-              setText('');
-
-              setMessages((msgs) => {
-                return [
-                  ...msgs,
-                  {
-                    role: 'user',
-                    content: data.query,
-                  },
-                ];
-              });
-
-              const response = await fetchResponse([
-                ...messages,
-                {
-                  role: 'user',
-                  content: data.query,
-                },
-              ]);
-              const json = await response.json();
-
-              setMessages((messages) => {
-                return [
-                  ...messages,
-                  {
-                    role: 'assistant',
-                    content: json.choices[0].message.content,
-                  },
-                ];
-              });
-            }}
-          >
+          <form className="flex gap-4" onSubmit={handleFormSubmit}>
             <textarea
               name="query"
               className="textarea textarea-bordered w-full max-h-40 h-0 text-lg resize-none grow-0"
