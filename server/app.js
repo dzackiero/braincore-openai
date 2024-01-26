@@ -8,7 +8,7 @@ const openai = new OpenAI();
 
 // Middleware
 app.use(express.json());
-app.use(cors);
+app.use(cors());
 
 app.post('/', async (req, res) => {
   const messages = req.body.messages;
