@@ -1,20 +1,12 @@
 import { useState } from 'react';
 
 function getChatResponse(messages) {
-  const apiUrl = import.meta.env.VITE_REACT_API_URL;
-  const apiKey = import.meta.env.VITE_REACT_API_KEY;
-
-  return fetch(apiUrl, {
+  return fetch('http://localhost:4000', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: 'gpt-3.5-turbo',
-      messages: messages,
-      stream: true,
-    }),
+    body: JSON.stringify({ messages: messages }),
   });
 }
 
@@ -37,6 +29,7 @@ function App() {
 
     setText('');
 
+    // Adding user Input + template for assistant to State
     setMessages((prevMessages) => [
       ...prevMessages,
       {
@@ -49,6 +42,7 @@ function App() {
       },
     ]);
 
+    // Making Request to API
     const response = await getChatResponse([
       ...messages,
       {
@@ -57,7 +51,10 @@ function App() {
       },
     ]);
 
+    // Check if response have body
     if (!response.body) return;
+
+    // Creating Reader
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let isFinished = false;
@@ -69,26 +66,15 @@ function App() {
       const decodeValue = decoder.decode(value);
       if (!decodeValue) break;
 
-      const messages = decodeValue.split('\n\n');
-      const chucks = messages
-        .filter((msg) => msg && msg !== 'data: [DONE]')
-        .map((message) => JSON.parse(message.replace(/^data:/g, '').trim()));
-
-      for (const chunk of chucks) {
-        const content = chunk.choices[0].delta.content;
-
-        if (content) {
-          setMessages((prevMessages) => [
-            ...prevMessages.slice(0, prevMessages.length - 1),
-            {
-              role: 'assistant',
-              content: `${
-                prevMessages[prevMessages.length - 1].content
-              }${content}`,
-            },
-          ]);
-        }
-      }
+      setMessages((prevMessages) => [
+        ...prevMessages.slice(0, prevMessages.length - 1),
+        {
+          role: 'assistant',
+          content: `${
+            prevMessages[prevMessages.length - 1].content
+          }${decodeValue}`,
+        },
+      ]);
     }
   };
 
