@@ -8,7 +8,7 @@ const openai = new OpenAI();
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+app.use(cors);
 
 app.post('/', async (req, res) => {
   const messages = req.body.messages;
@@ -28,21 +28,14 @@ app.post('/', async (req, res) => {
           chunk.choices[0].delta.content
         ) {
           res.write(chunk.choices[0].delta.content);
-        } else {
-          console.error('Invalid chunk structure:', chunk);
         }
       }
-
       res.end();
     } catch (error) {
       console.error('Error:', error);
       res.status(500).send('Internal Server Error');
     }
   }
-});
-
-app.get('/', async (req, res) => {
-  res.send('mantap');
 });
 
 app.listen(4000, () => {
